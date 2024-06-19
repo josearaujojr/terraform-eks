@@ -1,29 +1,34 @@
-# README #
+<!-- BEGIN_TF_DOCS -->
+## Requirements
 
-This README would normally document whatever steps are necessary to get your application up and running.
+| Name | Version |
+|------|---------|
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 5.53.0 |
 
-### What is this repository for? ###
+## Providers
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+No providers.
 
-### How do I get set up? ###
+## Modules
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_eks_cluster"></a> [eks\_cluster](#module\_eks\_cluster) | ./modules/cluster | n/a |
+| <a name="module_eks_managed_node_group"></a> [eks\_managed\_node\_group](#module\_eks\_managed\_node\_group) | ./modules/managed-node-group | n/a |
+| <a name="module_eks_network"></a> [eks\_network](#module\_eks\_network) | ./modules/network | n/a |
 
-### Contribution guidelines ###
+## Resources
 
-* Writing tests
-* Code review
-* Other guidelines
+No resources.
 
-### Who do I talk to? ###
+## Inputs
 
-* Repo owner or admin
-* Other community or team contact
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_cidr_block"></a> [cidr\_block](#input\_cidr\_block) | Network CIDR block to be used for the VPC | `string` | n/a | yes |
+| <a name="input_project_name"></a> [project\_name](#input\_project\_name) | Project name to be used to name the resources (Name tag) | `string` | n/a | yes |
+
+## Outputs
+
+No outputs.
+<!-- END_TF_DOCS -->
