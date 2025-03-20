@@ -44,6 +44,9 @@ validate:
     - cd ${TF_ROOT}
     - terraform init -backend-config="bucket=${TF_BACKEND_BUCKET}" -backend-config="key=${TF_BACKEND_KEY}" -backend-config="region=${AWS_DEFAULT_REGION}"
     - terraform plan -var="cidr_block=${CIDR_BLOCK}" -var="project_name=${PROJECT_NAME}" -var="cluster_name=${CLUSTER_NAME}" -var="aws_account_id=${AWS_ACCOUNT_ID}" -input=false -out=tfplan
+  artifacts:
+    paths:
+      - ${TF_ROOT}/tfplan
     
 # plan:
 #   stage: plan
