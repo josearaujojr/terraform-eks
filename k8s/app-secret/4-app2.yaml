@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app2
+  namespace: app
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::058264204627:role/app-eks-API-Token-Access_v1
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: aws-secrets
+  namespace: app
+spec:
+  provider: aws
+  parameters:
+    objects: |
+      - objectName: secretteste
+        objectType: secretsmanager
+        objectAlias: secret-token
+        jmesPath:
+          - path: wf_ds_name
+            objectAlias: wf-ds-name
+          - path: wf_ds_driver
+            objectAlias: wf-ds-driver
+          - path: wf_ds_pwd
+            objectAlias: wf-ds-pwd
+          - path: wf_ds_url
+            objectAlias: wf-ds-url
+          - path: wf_ds_user
+            objectAlias: wf-ds-user
+          - path: wf_ldap_pwd
+            objectAlias: wf-ldap-pwd
+  secretObjects:
+    - secretName: api-token
+      type: Opaque
+      data:
+        - objectName: wf-ds-name
+          key: key-wf-ds-name
+        - objectName: wf-ds-user
+          key: key-wf-ds-user
+        - objectName: wf-ds-driver
+          key: key-wf-ds-driver
+        - objectName: wf-ds-pwd
+          key: key-wf-ds-pwd
+        - objectName: wf-ds-url
+          key: key-wf-ds-url
+        - objectName: wf-ldap-pwd
+          key: key-wf-ldap-pwd
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app2
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app2
+  template:
+    metadata:
+      labels:
+        app: app2
+    spec:
+      serviceAccountName: app2
+      # initContainers:
+      # - name: setup-logs-dir
+      #   image: busybox
+      #   command: ['sh', '-c', 'mkdir -p /efs/logs && chmod -R 777 /efs/logs']
+      #   volumeMounts:
+      #   - name: efs-storage
+      #     mountPath: /efs
+      containers:
+      - name: app2
+        image: 058264204627.dkr.ecr.us-east-1.amazonaws.com/app-eks-app:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: efs-storage
+          mountPath: /var/log/apache2
+          subPath: app2
+        - name: my-api-token
+          mountPath: /mnt/api-token
+          readOnly: true
+        env:
+        - name: WF_DS_NAME
+          valueFrom:
+            secretKeyRef:
+              name: api-token
+              key: key-wf-ds-name
+        - name: WF_DS_USER
+          valueFrom:
+            secretKeyRef:
+              name: api-token
+              key: key-wf-ds-user
+        - name: WF_DS_DRIVER
+          valueFrom:
+            secretKeyRef:
+              name: api-token
+              key: key-wf-ds-driver
+        - name: WF_DS_PWD
+          valueFrom:
+            secretKeyRef:
+              name: api-token
+              key: key-wf-ds-pwd
+        - name: WF_DS_URL
+          valueFrom:
+            secretKeyRef:
+              name: api-token
+              key: key-wf-ds-url
+        - name: WF_LDAP_PWD
+          valueFrom:
+            secretKeyRef:
+              name: api-token
+              key: key-wf-ldap-pwd
+      volumes:
+      - name: efs-storage
+        persistentVolumeClaim:
+          claimName: efs-pvc
+      - name: my-api-token
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: aws-secrets
+      imagePullSecrets:
+      - name: ecr-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app2
+  namespace: app
+spec:
+  selector:
+    app: app2
+  ports:
+    - port: 8080
+      targetPort: 8080

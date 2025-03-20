@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-deployment
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apache-httpd
+  template:
+    metadata:
+      labels:
+        app: apache-httpd
+    spec:
+      containers:
+      - name: apache-httpd
+        image: httpd:2.4
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: apache-config-volume
+          mountPath: /usr/local/apache2/conf/httpd.conf
+          subPath: httpd.conf
+        - name: efs-logs
+          mountPath: /usr/local/apache2/htdocs  # Monta o volume EFS para servir arquivos
+      volumes:
+      - name: apache-config-volume
+        configMap:
+          name: apache-config
+      - name: efs-logs
+        persistentVolumeClaim:
+          claimName: efs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd-service
+  namespace: app
+  labels:
+    app: apache-httpd
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: apache-httpd
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: httpd-ingress
+  namespace: app
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2  # Modificado para usar capture group
+spec:
+  rules:
+  - host: ""  
+    http:
+      paths:
+      - path: /apache(/|$)(.*)  # Modificado para capturar o path /apache
+        pathType: Prefix
+        backend:
+          service:
+            name: httpd-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apache-config
+  namespace: app
+data:
+  httpd.conf: |
+    ServerRoot "/usr/local/apache2"
+    Listen 80
+    LoadModule mpm_event_module modules/mod_mpm_event.so
+    LoadModule authn_file_module modules/mod_authn_file.so
+    LoadModule authn_core_module modules/mod_authn_core.so
+    LoadModule authz_host_module modules/mod_authz_host.so
+    LoadModule authz_groupfile_module modules/mod_authz_groupfile.so
+    LoadModule authz_user_module modules/mod_authz_user.so
+    LoadModule authz_core_module modules/mod_authz_core.so
+    LoadModule access_compat_module modules/mod_access_compat.so
+    LoadModule auth_basic_module modules/mod_auth_basic.so
+    LoadModule reqtimeout_module modules/mod_reqtimeout.so
+    LoadModule filter_module modules/mod_filter.so
+    LoadModule mime_module modules/mod_mime.so
+    LoadModule log_config_module modules/mod_log_config.so
+    LoadModule env_module modules/mod_env.so
+    LoadModule headers_module modules/mod_headers.so
+    LoadModule setenvif_module modules/mod_setenvif.so
+    LoadModule version_module modules/mod_version.so
+    LoadModule unixd_module modules/mod_unixd.so
+    LoadModule status_module modules/mod_status.so
+    LoadModule autoindex_module modules/mod_autoindex.so
+    LoadModule dir_module modules/mod_dir.so
+    LoadModule alias_module modules/mod_alias.so
+
+    <IfModule unixd_module>
+    User daemon
+    Group daemon
+    </IfModule>
+
+    ServerAdmin you@example.com
+    ServerName localhost
+
+    <Directory />
+        AllowOverride none
+        Require all denied
+    </Directory>
+
+    DocumentRoot "/usr/local/apache2/htdocs"
+    <Directory "/usr/local/apache2/htdocs">
+        Options Indexes FollowSymLinks
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    ErrorLog /proc/self/fd/2
+    LogLevel warn
+
+    <IfModule log_config_module>
+        LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+        LogFormat "%h %l %u %t \"%r\" %>s %b" common
+        CustomLog /proc/self/fd/1 common
+    </IfModule>
+
+    <IfModule headers_module>
+        RequestHeader unset Proxy early
+    </IfModule>
+
+    <IfModule mime_module>
+        TypesConfig conf/mime.types
+        AddType application/x-compress .Z
+        AddType application/x-gzip .gz .tgz
+    </IfModule>
+
+    <IfModule proxy_html_module>
+        Include conf/extra/proxy-html.conf
+    </IfModule>
+
+    <IfModule ssl_module>
+        SSLRandomSeed startup builtin
+        SSLRandomSeed connect builtin
+    </IfModule>
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: apache-config
+#   namespace: app
+# data:
+#   httpd.conf: |
+#     ServerRoot "/usr/local/apache2"
+#     Listen 80
+#     ServerName localhost
+#     LoadModule dir_module modules/mod_dir.so
+#     DocumentRoot "/usr/local/apache2/htdocs"
+#     <Directory "/usr/local/apache2/htdocs">
+#         Require all granted
+#     </Directory>
