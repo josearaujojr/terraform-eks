@@ -2,6 +2,7 @@ stages:
   - validate
   - plan
   - apply
+  - destroy
 
 variables:
   TF_ROOT: ${CI_PROJECT_DIR}/terraform-eks  # Diretório do Terraform
