@@ -4,30 +4,32 @@ stages:
   - apply
 
 variables:
-  TF_ROOT: ${CI_PROJECT_DIR}
-  AWS_DEFAULT_REGION: "us-east-1"  # Região da AWS
-  TF_BACKEND_BUCKET: "tf-state-777"  # Nome do bucket S3 para o estado do Terraform
+  TF_ROOT: ${CI_PROJECT_DIR}/terraform-eks  # Diretório do Terraform
+  AWS_DEFAULT_REGION: "us-east-1"           # Região da AWS
+  TF_BACKEND_BUCKET: "tf-state-777"         # Nome do bucket S3 para o estado do Terraform
   TF_BACKEND_KEY: "app-eks/terraform.tfstate"  # Caminho do arquivo de estado no S3
 
 before_script:
-  # Instalar dependências
+  # Instalar dependências básicas
   - apt-get update && apt-get install -y curl unzip git
+
+  # Instalar Terraform
   - curl -LO https://releases.hashicorp.com/terraform/1.5.5/terraform_1.5.5_linux_amd64.zip
   - unzip terraform_1.5.5_linux_amd64.zip -d /usr/local/bin/
   - terraform --version
 
-  # Configurar AWS CLI
+  # Instalar AWS CLI
   - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
   - unzip awscliv2.zip
   - ./aws/install
   - aws --version
 
-  # Configurar kubectl
+  # Instalar kubectl
   - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
   - install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
   - kubectl version --client
 
-  # Configurar Helm
+  # Instalar Helm
   - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   - helm version
 
@@ -39,23 +41,26 @@ before_script:
 validate:
   stage: validate
   script:
+    - cd ${TF_ROOT}  # Acessa o diretório do Terraform
     - terraform init -backend-config="bucket=${TF_BACKEND_BUCKET}" -backend-config="key=${TF_BACKEND_KEY}" -backend-config="region=${AWS_DEFAULT_REGION}"
     - terraform validate
 
 plan:
   stage: plan
   script:
+    - cd ${TF_ROOT}  # Acessa o diretório do Terraform
     - terraform init -backend-config="bucket=${TF_BACKEND_BUCKET}" -backend-config="key=${TF_BACKEND_KEY}" -backend-config="region=${AWS_DEFAULT_REGION}"
     - terraform plan -out=tfplan
   artifacts:
     paths:
-      - tfplan
+      - ${TF_ROOT}/tfplan  # Salva o plano no diretório do Terraform
 
-apply:
-  stage: apply
-  script:
-    - terraform init -backend-config="bucket=${TF_BACKEND_BUCKET}" -backend-config="key=${TF_BACKEND_KEY}" -backend-config="region=${AWS_DEFAULT_REGION}"
-    - terraform apply -input=false tfplan
-  when: manual
-  only:
-    - main
+# apply:
+#   stage: apply
+#   script:
+#     - cd ${TF_ROOT}  # Acessa o diretório do Terraform
+#     - terraform init -backend-config="bucket=${TF_BACKEND_BUCKET}" -backend-config="key=${TF_BACKEND_KEY}" -backend-config="region=${AWS_DEFAULT_REGION}"
+#     - terraform apply -input=false tfplan
+#   when: manual
+#   only:
+#     - main
