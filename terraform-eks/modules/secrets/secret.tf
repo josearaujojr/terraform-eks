@@ -1,6 +1,6 @@
 resource "aws_iam_policy" "policy_secret" {
   name        = "${var.project_name}-secret-policy"
-  description = "Policy to allow reading API tokens from Secrets Manager"
+  description = "Policy to allow reading API tokens from Secrets Manager and accessing S3"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -9,6 +9,19 @@ resource "aws_iam_policy" "policy_secret" {
         Effect   = "Allow",
         Action   = "secretsmanager:*",
         Resource = "*"
+      },
+      {
+        Effect   = "Allow",
+        Action   = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ],
+        Resource = [
+          "arn:aws:s3:::img-app0001",
+          "arn:aws:s3:::img-app0001/*"
+        ]
       }
     ]
   })
