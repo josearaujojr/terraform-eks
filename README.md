@@ -1,4 +1,4 @@
-# app-k8s
+# terraform-k8s
 
 Antes de rodar o init ou plan, fazer as seguintes alterações:
 
