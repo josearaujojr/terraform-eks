@@ -147,20 +147,11 @@ resource "helm_release" "nginx_ingress" {
 
 ########################## EXTERNAL SECRETS OPERATOR
 
-resource "helm_release" "external_secrets" {
-  name       = "external-secrets"
+resource "helm_release" "external_secret_operator" {
+  name = "external-secret-operator"
   repository = "https://charts.external-secrets.io"
-  chart      = "external-secrets"
-  version    = "v0.9.15"
-  namespace  = "external-secrets"
-
-  #create_namespace = true
-
-  values = [
-    yamlencode({
-      installCRDs = true
-    })
-  ]
+  chart = "external-secrets"
+  namespace = "default"
 }
 
 # ########################## CSI SECRET STORE
