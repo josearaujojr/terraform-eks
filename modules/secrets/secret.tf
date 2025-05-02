@@ -42,7 +42,7 @@ resource "aws_iam_role_policy_attachment" "eso_attach" {
 resource "kubernetes_service_account" "eso_sa" {
   metadata {
     name      = "external-secrets"
-    namespace = "external-secrets"
+    namespace = "default"
     annotations = {
       "eks.amazonaws.com/role-arn" = aws_iam_role.eso_role.arn
     }
