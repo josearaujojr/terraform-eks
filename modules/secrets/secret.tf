@@ -17,20 +17,22 @@ resource "aws_iam_policy" "eso_policy" {
 resource "aws_iam_role" "eso_role" {
   name = "eso-service-account-role"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow",
-      Principal = {
-        Federated = "arn:aws:iam::${var.aws_account_id}:oidc-provider/${var.oidc_issuer_url}"
-      },
-      Action = "sts:AssumeRoleWithWebIdentity",
-      Condition = {
-        StringEquals = {
-          "${var.oidc_issuer_url}:sub" = "system:serviceaccount:external-secrets:external-secrets"
+    assume_role_policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Principal" : {
+          "Federated" : "arn:aws:iam::${var.aws_account_id}:oidc-provider/${var.oidc_issuer_url}"
+        },
+        "Action" : "sts:AssumeRoleWithWebIdentity",
+        "Condition" : {
+          "StringEquals" : {
+            "${var.oidc_issuer_url}:aud": "sts.amazonaws.com"
+          }
         }
       }
-    }]
+    ]
   })
 }
 
