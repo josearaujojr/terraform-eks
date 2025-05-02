@@ -154,7 +154,7 @@ resource "helm_release" "external_secrets" {
   version    = "v0.9.15"
   namespace  = "external-secrets"
 
-  create_namespace = true
+  #create_namespace = true
 
   values = [
     yamlencode({
