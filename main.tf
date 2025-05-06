@@ -380,7 +380,7 @@ resource "helm_release" "sonarqube" {
   name       = "sonarqube"
   repository = "https://charts.bitnami.com/bitnami"
   chart      = "sonarqube"
-  #version    = "11.0.0"
+  version    = "8.0.0"
   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
 
   set {
