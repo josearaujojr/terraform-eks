@@ -370,6 +370,11 @@ EOT
 }
 
 ########################## SONARQUBE
+resource "kubernetes_namespace" "sonarqube" {
+  metadata {
+    name = "sonarqube"
+  }
+}
 
 resource "helm_release" "sonarqube" {
   name       = "sonarqube"
