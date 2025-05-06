@@ -37,7 +37,7 @@ resource "aws_eks_cluster" "eks_cluster" {
 
 resource "null_resource" "wait_for_sg" {
   provisioner "local-exec" {
-    command = "sleep 30"  # Ajuste o tempo conforme necessário
+    command = "sleep 30" # Ajuste o tempo conforme necessário
   }
   depends_on = [aws_eks_cluster.eks_cluster]
 }
@@ -46,9 +46,9 @@ resource "null_resource" "wait_for_sg" {
 data "aws_security_group" "eks_cluster_security_group" {
   filter {
     name   = "group-name"
-    values = ["eks-cluster*"]  # Altere conforme necessário
+    values = ["eks-cluster*"] # Altere conforme necessário
   }
-  vpc_id = var.vpc_id
+  vpc_id     = var.vpc_id
   depends_on = [null_resource.wait_for_sg]
 }
 
@@ -65,10 +65,10 @@ resource "null_resource" "tag_eks_sg" {
 
 locals {
   tags = {
-    Department   = "DevOps"
-    Organization = "Infrastructure and Operations"
-    Project      = "EKS"
-    Environment  = "Development"
+    Department               = "DevOps"
+    Organization             = "Infrastructure and Operations"
+    Project                  = "EKS"
+    Environment              = "Development"
     "karpenter.sh/discovery" = "app-eks-cluster"
   }
 }

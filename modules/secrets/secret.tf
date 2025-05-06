@@ -1,55 +1,4 @@
-data "aws_iam_policy_document" "eso" {
-  statement {
-    actions = [
-      "secretsmanager:GetSecretValue"
-    ]
-    resources = [
-      "arn:aws:secretsmanager:us-east-1:${var.aws_account_id}:secret:*"
-    ]
-  }
-}
-
-resource "aws_iam_policy" "eso_policy" {
-  name   = "eso-secretsmanager-policy"
-  policy = data.aws_iam_policy_document.eso.json
-}
-
-resource "aws_iam_role" "eso_role" {
-  name = "eso-service-account-role"
-
-    assume_role_policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Effect" : "Allow",
-        "Principal" : {
-          "Federated" : "arn:aws:iam::${var.aws_account_id}:oidc-provider/${var.oidc_issuer_url}"
-        },
-        "Action" : "sts:AssumeRoleWithWebIdentity",
-        "Condition" : {
-          "StringEquals" : {
-            "${var.oidc_issuer_url}:aud": "sts.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eso_attach" {
-  role       = aws_iam_role.eso_role.name
-  policy_arn = aws_iam_policy.eso_policy.arn
-}
-
-resource "kubernetes_service_account" "eso_sa" {
-  metadata {
-    name      = "external-secrets"
-    namespace = "default"
-    annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.eso_role.arn
-    }
-  }
-}
+########################## SECRET STORE CSI DRIVER
 
 resource "aws_iam_policy" "policy_secret" {
   name        = "${var.project_name}-secret-policy"
@@ -64,8 +13,8 @@ resource "aws_iam_policy" "policy_secret" {
         Resource = "*"
       },
       {
-        Effect   = "Allow",
-        Action   = [
+        Effect = "Allow",
+        Action = [
           "s3:ListBucket",
           "s3:GetObject",
           "s3:PutObject",
@@ -94,7 +43,7 @@ resource "aws_iam_role" "role_secret" {
         "Action" : "sts:AssumeRoleWithWebIdentity",
         "Condition" : {
           "StringEquals" : {
-            "${var.oidc_issuer_url}:aud": "sts.amazonaws.com"
+            "${var.oidc_issuer_url}:aud" : "sts.amazonaws.com"
           }
         }
       }
@@ -105,4 +54,59 @@ resource "aws_iam_role" "role_secret" {
 resource "aws_iam_role_policy_attachment" "attach_policy_secret" {
   role       = aws_iam_role.role_secret.name
   policy_arn = aws_iam_policy.policy_secret.arn
+}
+
+########################## EXTERNAL SECRET OPERATOR
+
+data "aws_iam_policy_document" "eso" {
+  statement {
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "arn:aws:secretsmanager:us-east-1:${var.aws_account_id}:secret:*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "eso_policy" {
+  name   = "eso-secretsmanager-policy"
+  policy = data.aws_iam_policy_document.eso.json
+}
+
+resource "aws_iam_role" "eso_role" {
+  name = "eso-service-account-role"
+
+  assume_role_policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Principal" : {
+          "Federated" : "arn:aws:iam::${var.aws_account_id}:oidc-provider/${var.oidc_issuer_url}"
+        },
+        "Action" : "sts:AssumeRoleWithWebIdentity",
+        "Condition" : {
+          "StringEquals" : {
+            "${var.oidc_issuer_url}:aud" : "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eso_attach" {
+  role       = aws_iam_role.eso_role.name
+  policy_arn = aws_iam_policy.eso_policy.arn
+}
+
+resource "kubernetes_service_account" "eso_sa" {
+  metadata {
+    name      = "external-secrets"
+    namespace = "default"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.eso_role.arn
+    }
+  }
 }

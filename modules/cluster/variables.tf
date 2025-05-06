@@ -5,7 +5,7 @@ variable "cluster_name" {
 
 variable "cluster_id" {
   description = "id cluster"
-  type = string
+  type        = string
 }
 variable "project_name" {
   type        = string
@@ -46,7 +46,7 @@ variable "aws_account_id" {
 variable "karpenter_version" {
   description = "Versão do Karpenter"
   type        = string
-  default     = "v0.29.0"  # Atualize conforme necessário
+  default     = "v0.29.0" # Atualize conforme necessário
 }
 
 variable "karpenter_namespace" {

@@ -256,7 +256,7 @@
 
 
 # resource "kubectl_manifest" "install_karpenter" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: policy/v1
 #     kind: PodDisruptionBudget
@@ -280,7 +280,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter2" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: v1
 #     kind: ServiceAccount
@@ -300,7 +300,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter3" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: v1
 #     kind: Secret
@@ -318,7 +318,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter4" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: ClusterRole
@@ -343,7 +343,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter5" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: ClusterRole
@@ -402,7 +402,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter6" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: ClusterRole
@@ -428,7 +428,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter7" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: ClusterRoleBinding
@@ -453,7 +453,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter8" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: ClusterRoleBinding
@@ -478,7 +478,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter9" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: Role
@@ -520,7 +520,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter10" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: Role
@@ -544,7 +544,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter11" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: Role
@@ -571,7 +571,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter12" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: RoleBinding
@@ -597,7 +597,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter13" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: RoleBinding
@@ -623,7 +623,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter14" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: rbac.authorization.k8s.io/v1
 #     kind: RoleBinding
@@ -649,7 +649,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter15" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: v1
 #     kind: Service
@@ -685,7 +685,7 @@
 #   depends_on = [module.eks_cluster]
 # }
 # resource "kubectl_manifest" "install_karpenter16" {
-  
+
 #   yaml_body = <<-EOT
 #     apiVersion: apps/v1
 #     kind: Deployment
@@ -872,7 +872,7 @@
 #       expireAfter: 8m
 #   ttlSecondsUntilExpired: 3600
 #   ttlSecondsAfterEmpty: 10
-  
+
 #   limits:
 #     cpu: 50000
 

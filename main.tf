@@ -64,9 +64,9 @@ module "eks_cluster" {
   cluster_name      = var.cluster_name
   aws_partition     = "aws"
   aws_account_id    = var.aws_account_id
-  vpc_id = module.eks_network.eks_vpc
+  vpc_id            = module.eks_network.eks_vpc
   oidc_provider_arn = module.eks_cluster.oidc_provider_arn
-  cluster_id = module.eks_cluster.cluster_id
+  cluster_id        = module.eks_cluster.cluster_id
 }
 
 module "eks_managed_node_group" {
@@ -80,24 +80,25 @@ module "eks_managed_node_group" {
 }
 
 module "eks_efs_logs" {
-  source             = "./modules/efs"
-  project_name       = var.project_name
-  tags               = local.tags
-  cluster_id         = var.cluster_name
-  eks_vpc_id         = module.eks_network.eks_vpc
-  subnet_priv_1a     = module.eks_network.subnet_priv_1a
-  subnet_priv_1b     = module.eks_network.subnet_priv_1b
-  eks_cluster_sg_id  = module.eks_cluster.eks_cluster_security_group
+  source              = "./modules/efs"
+  project_name        = var.project_name
+  tags                = local.tags
+  cluster_id          = var.cluster_name
+  eks_vpc_id          = module.eks_network.eks_vpc
+  subnet_priv_1a      = module.eks_network.subnet_priv_1a
+  subnet_priv_1b      = module.eks_network.subnet_priv_1b
+  eks_cluster_sg_id   = module.eks_cluster.eks_cluster_security_group
   eks_cluster_sg_rule = module.eks_cluster.eks_cluster_sg_rule
-  oidc_issuer_url    = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
+  oidc_issuer_url     = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
+  depends_on          = [module.eks_cluster]
 }
 
 
 module "secret_manager" {
-  source       = "./modules/secrets"
-  project_name = var.project_name
-  oidc_issuer_url    = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
-  aws_account_id = var.aws_account_id
+  source          = "./modules/secrets"
+  project_name    = var.project_name
+  oidc_issuer_url = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
+  aws_account_id  = var.aws_account_id
   # secret_name  = "WASGTEAR-DEV666"
   # description  = "API token for the service"
   # secrets = {
@@ -112,11 +113,11 @@ module "secret_manager" {
 #   tags              = local.tags
 # }
 
-###### HELM RELEASE ######
+########################## HELM RELEASE
 
 resource "helm_release" "nginx_ingress" {
-  name       = "nginx-ingress"
-  namespace  = "ingress-nginx"
+  name             = "nginx-ingress"
+  namespace        = "ingress-nginx"
   create_namespace = true
 
   chart      = "ingress-nginx"
@@ -148,13 +149,13 @@ resource "helm_release" "nginx_ingress" {
 ########################## EXTERNAL SECRETS OPERATOR
 
 resource "helm_release" "external_secret_operator" {
-  name = "external-secret-operator"
+  name       = "external-secret-operator"
   repository = "https://charts.external-secrets.io"
-  chart = "external-secrets"
-  namespace = "default"
+  chart      = "external-secrets"
+  namespace  = "default"
 }
 
-# ########################## CSI SECRET STORE
+########################## CSI SECRET STORE
 
 # install do Secrets Store CSI Driver usando o Helm Release
 resource "helm_release" "csi_secrets_store" {
@@ -162,7 +163,7 @@ resource "helm_release" "csi_secrets_store" {
   namespace  = "kube-system"
   repository = "https://kubernetes-sigs.github.io/secrets-store-csi-driver/charts"
   chart      = "secrets-store-csi-driver"
-  version    = "1.3.3"  # version do chart
+  version    = "1.3.3" # version do chart
 
   set {
     name  = "syncSecret.enabled"
@@ -184,7 +185,7 @@ resource "helm_release" "csi_secrets_store" {
   # ]
 }
 
-resource "kubectl_manifest" "csi_secret_0" {
+resource "kubectl_manifest" "csi_secret_sa" {
   yaml_body = <<-EOT
 # https://kubernetes.io/docs/reference/access-authn-authz/rbac
 apiVersion: v1
@@ -198,7 +199,7 @@ metadata:
 }
 
 
-resource "kubectl_manifest" "csi_secret_1" {
+resource "kubectl_manifest" "csi_secret_cr" {
   yaml_body = <<-EOT
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -222,7 +223,7 @@ rules:
   depends_on = [module.eks_cluster]
 }
 
-resource "kubectl_manifest" "csi_secret_2" {
+resource "kubectl_manifest" "csi_secret_crb" {
   yaml_body = <<-EOT
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -241,7 +242,7 @@ subjects:
   depends_on = [module.eks_cluster]
 }
 
-resource "kubectl_manifest" "csi_secret_3" {
+resource "kubectl_manifest" "csi_secret_ds" {
   yaml_body = <<-EOT
 apiVersion: apps/v1
 kind: DaemonSet
@@ -300,7 +301,7 @@ spec:
   depends_on = [module.eks_cluster]
 }
 
-resource "kubectl_manifest" "csi_secret_4" {
+resource "kubectl_manifest" "csi_secret_cr2" {
   yaml_body = <<-EOT
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -315,7 +316,7 @@ EOT
   depends_on = [module.eks_cluster]
 }
 
-resource "kubectl_manifest" "csi_secret_5" {
+resource "kubectl_manifest" "csi_secret_crb2" {
   yaml_body = <<-EOT
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -334,7 +335,6 @@ EOT
   depends_on = [module.eks_cluster]
 }
 
-# Inclusão de permissões globais em todos os namespaces
 resource "kubectl_manifest" "csi_secret_clusterrole" {
   yaml_body = <<-EOT
 apiVersion: rbac.authorization.k8s.io/v1
