@@ -1,7 +1,4 @@
 <!-- BEGIN_TF_DOCS -->
-## Arquitetura
-![Diagrama do EKS](arquitetura/terraform-eks.drawio.png)
-
 ## Requirements
 
 No requirements.
