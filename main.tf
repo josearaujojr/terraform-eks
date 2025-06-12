@@ -370,36 +370,36 @@ EOT
 }
 
 ########################## SONARQUBE
-resource "kubernetes_namespace" "sonarqube" {
-  metadata {
-    name = "sonarqube"
-  }
-}
+# resource "kubernetes_namespace" "sonarqube" {
+#   metadata {
+#     name = "sonarqube"
+#   }
+# }
 
-resource "helm_release" "sonarqube" {
-  name       = "sonarqube"
-  repository = "https://charts.bitnami.com/bitnami"
-  chart      = "sonarqube"
-  version    = "8.0.0"
-  namespace  = kubernetes_namespace.sonarqube.metadata[0].name
+# resource "helm_release" "sonarqube" {
+#   name       = "sonarqube"
+#   repository = "https://charts.bitnami.com/bitnami"
+#   chart      = "sonarqube"
+#   version    = "8.0.0"
+#   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
 
-  set {
-    name  = "service.type"
-    value = "ClusterIP"
-  }
+#   set {
+#     name  = "service.type"
+#     value = "ClusterIP"
+#   }
 
-  set {
-    name  = "postgresql.enabled"
-    value = "true"
-  }
+#   set {
+#     name  = "postgresql.enabled"
+#     value = "true"
+#   }
 
-  set {
-    name  = "persistence.enabled"
-    value = "true"
-  }
+#   set {
+#     name  = "persistence.enabled"
+#     value = "true"
+#   }
 
-  set {
-    name  = "persistence.size"
-    value = "10Gi"
-  }
-}
+#   set {
+#     name  = "persistence.size"
+#     value = "10Gi"
+#   }
+# }
