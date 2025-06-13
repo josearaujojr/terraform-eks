@@ -369,7 +369,7 @@ EOT
   depends_on = [module.eks_cluster]
 }
 
-########################## SONARQUBE
+######################### SONARQUBE
 # resource "kubernetes_namespace" "sonarqube" {
 #   metadata {
 #     name = "sonarqube"
