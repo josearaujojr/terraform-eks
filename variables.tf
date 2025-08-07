@@ -23,15 +23,3 @@ variable "aws_account_id" {
   description = "ID da conta AWS"
   type        = string
 }
-
-variable "karpenter_version" {
-  description = "Versão do Karpenter"
-  type        = string
-  default     = "v0.29.0"
-}
-
-variable "karpenter_namespace" {
-  description = "Namespace para o Karpenter"
-  type        = string
-  default     = "karpenter"
-}

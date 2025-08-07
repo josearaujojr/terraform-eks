@@ -20,6 +20,11 @@ data:
       - system:nodes
       rolearn: arn:aws:iam::${var.aws_account_id}:role/KarpenterIRSA-app-eks-cluster
       username: system:node:{{EC2PrivateDNSName}}
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::${var.aws_account_id}:role/KarpenterNodeRole-app-eks-cluster
+      username: system:node:{{EC2PrivateDNSName}}      
   mapUsers: |
     - userarn: arn:aws:iam::${var.aws_account_id}:user/administrator
       username: administrator
@@ -45,8 +50,6 @@ EOF
     module.eks_managed_node_group,
   ]
 }
-
-
 
 module "eks_network" {
   source       = "./modules/network"
@@ -79,20 +82,19 @@ module "eks_managed_node_group" {
   capacity_type     = "ON_DEMAND"
 }
 
-module "eks_efs_logs" {
-  source              = "./modules/efs"
-  project_name        = var.project_name
-  tags                = local.tags
-  cluster_id          = var.cluster_name
-  eks_vpc_id          = module.eks_network.eks_vpc
-  subnet_priv_1a      = module.eks_network.subnet_priv_1a
-  subnet_priv_1b      = module.eks_network.subnet_priv_1b
-  eks_cluster_sg_id   = module.eks_cluster.eks_cluster_security_group
-  eks_cluster_sg_rule = module.eks_cluster.eks_cluster_sg_rule
-  oidc_issuer_url     = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
-  depends_on          = [module.eks_cluster]
-}
-
+# module "eks_efs_logs" {
+#   source              = "./modules/efs"
+#   project_name        = var.project_name
+#   tags                = local.tags
+#   cluster_id          = var.cluster_name
+#   eks_vpc_id          = module.eks_network.eks_vpc
+#   subnet_priv_1a      = module.eks_network.subnet_priv_1a
+#   subnet_priv_1b      = module.eks_network.subnet_priv_1b
+#   eks_cluster_sg_id   = module.eks_cluster.eks_cluster_security_group
+#   eks_cluster_sg_rule = module.eks_cluster.eks_cluster_sg_rule
+#   oidc_issuer_url     = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
+#   depends_on          = [module.eks_cluster]
+# }
 
 module "secret_manager" {
   source          = "./modules/secrets"
@@ -368,38 +370,3 @@ EOT
 
   depends_on = [module.eks_cluster]
 }
-
-######################### SONARQUBE
-# resource "kubernetes_namespace" "sonarqube" {
-#   metadata {
-#     name = "sonarqube"
-#   }
-# }
-
-# resource "helm_release" "sonarqube" {
-#   name       = "sonarqube"
-#   repository = "https://charts.bitnami.com/bitnami"
-#   chart      = "sonarqube"
-#   version    = "8.0.0"
-#   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
-
-#   set {
-#     name  = "service.type"
-#     value = "ClusterIP"
-#   }
-
-#   set {
-#     name  = "postgresql.enabled"
-#     value = "true"
-#   }
-
-#   set {
-#     name  = "persistence.enabled"
-#     value = "true"
-#   }
-
-#   set {
-#     name  = "persistence.size"
-#     value = "10Gi"
-#   }
-# }
