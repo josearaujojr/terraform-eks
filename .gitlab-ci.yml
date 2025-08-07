@@ -47,6 +47,8 @@ validate:
   artifacts:
     paths:
       - ${TF_ROOT}/tfplan
+  only:
+    - main  
 
 apply:
   stage: apply
