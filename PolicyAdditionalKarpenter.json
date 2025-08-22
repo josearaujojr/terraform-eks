@@ -1,0 +1,39 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ExtraRunInstancesAccess",
+            "Effect": "Allow",
+            "Action": "ec2:*",
+            "Resource": "*"
+        },
+        {
+            "Sid": "AllowInstanceProfileReadActions",
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetInstanceProfile",
+                "iam:PassRole"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "AllowScopedInstanceProfileActions",
+            "Effect": "Allow",
+            "Action": [
+                "iam:*",
+                "iam:RemoveRoleFromInstanceProfile",
+                "iam:DeleteInstanceProfile"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/kubernetes.io/cluster/app-eks-cluster": "owned",
+                    "aws:ResourceTag/topology.kubernetes.io/region": "us-east-1"
+                },
+                "StringLike": {
+                    "aws:ResourceTag/karpenter.k8s.aws/ec2nodeclass": "*"
+                }
+            }
+        }
+    ]
+}

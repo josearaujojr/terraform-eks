@@ -1,61 +1,16 @@
-resource "null_resource" "edit_aws_auth_configmap" {
-  provisioner "local-exec" {
-    command = <<EOT
-    sleep 60
-    aws eks update-kubeconfig --name ${var.cluster_name}
-
-    kubectl get configmap aws-auth -n kube-system -o yaml > aws-auth.yaml
-
-    cat <<EOF > aws-auth.yaml
-apiVersion: v1
-data:
-  mapRoles: |
-    - groups:
-      - system:bootstrappers
-      - system:nodes
-      rolearn: arn:aws:iam::${var.aws_account_id}:role/app-eks-mng-role
-      username: system:node:{{EC2PrivateDNSName}}
-    - groups:
-      - system:bootstrappers
-      - system:nodes
-      rolearn: arn:aws:iam::${var.aws_account_id}:role/KarpenterIRSA-app-eks-cluster
-      username: system:node:{{EC2PrivateDNSName}}
-    - groups:
-      - system:bootstrappers
-      - system:nodes
-      rolearn: arn:aws:iam::${var.aws_account_id}:role/KarpenterNodeRole-app-eks-cluster
-      username: system:node:{{EC2PrivateDNSName}}      
-  mapUsers: |
-    - userarn: arn:aws:iam::${var.aws_account_id}:user/administrator
-      username: administrator
-      groups:
-        - system:masters
-    - userarn: arn:aws:iam::${var.aws_account_id}:root
-      username: root-user
-      groups:
-        - system:masters
-kind: ConfigMap
-metadata:
-  name: aws-auth
-  namespace: kube-system
-EOF
-
-    # Aplica as alterações
-    kubectl apply -f aws-auth.yaml
-    EOT
-  }
-
-  depends_on = [
-    module.eks_cluster,
-    module.eks_managed_node_group,
-  ]
+provider "aws" {
+    region = "us-east-1"
+    alias  = "ecr"
+}
+data "aws_ecrpublic_authorization_token" "token" {
+  provider = aws.ecr
 }
 
 module "eks_network" {
   source       = "./modules/network"
   cidr_block   = var.cidr_block
   project_name = var.project_name
-  tags         = local.tags
+  tags         = merge(local.tags, local.karpenter_tags)
 }
 
 module "eks_cluster" {
@@ -82,19 +37,143 @@ module "eks_managed_node_group" {
   capacity_type     = "ON_DEMAND"
 }
 
-# module "eks_efs_logs" {
-#   source              = "./modules/efs"
-#   project_name        = var.project_name
-#   tags                = local.tags
-#   cluster_id          = var.cluster_name
-#   eks_vpc_id          = module.eks_network.eks_vpc
-#   subnet_priv_1a      = module.eks_network.subnet_priv_1a
-#   subnet_priv_1b      = module.eks_network.subnet_priv_1b
-#   eks_cluster_sg_id   = module.eks_cluster.eks_cluster_security_group
-#   eks_cluster_sg_rule = module.eks_cluster.eks_cluster_sg_rule
-#   oidc_issuer_url     = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
-#   depends_on          = [module.eks_cluster]
-# }
+module "karpenter" {
+  source = "terraform-aws-modules/eks/aws//modules/karpenter"
+
+  cluster_name = module.eks_cluster.cluster_name
+  irsa_oidc_provider_arn          = module.eks_cluster.oidc_provider_arn
+  irsa_namespace_service_accounts = ["karpenter:karpenter"]
+
+  iam_role_additional_policies = {
+    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  }
+}
+
+resource "aws_iam_policy" "karpenter_policy_additional" {
+  name        = "KarpenterAdditionalPolicy"
+  description = "Policy for additional permissions required by Karpenter"
+  policy      = file("PolicyAdditionalKarpenter.json")  
+
+  depends_on = [ module.karpenter ]
+}
+
+resource "aws_iam_role_policy_attachment" "karpenter_additional_policy" {
+  role       = module.karpenter.irsa_name
+  policy_arn = aws_iam_policy.karpenter_policy_additional.arn
+
+  depends_on = [ module.karpenter ]
+}
+
+resource "helm_release" "karpenter" {
+  repository_username = data.aws_ecrpublic_authorization_token.token.user_name
+  repository_password = data.aws_ecrpublic_authorization_token.token.password
+  name       = "karpenter"
+  repository = "oci://public.ecr.aws/karpenter"
+  version    = "1.0.10"
+  namespace  = "karpenter"
+  chart            = "karpenter"
+  create_namespace = true
+  wait             = true
+
+  set {
+    name  = "settings.clusterName"
+    value = "${module.eks_cluster.cluster_name}"
+  }
+
+  set {
+    name  = "settings.interruptionQueue"
+    value = "${module.karpenter.queue_name}"
+  }
+
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = "arn:${var.aws_partition}:iam::${var.aws_account_id}:role/${module.karpenter.irsa_name}"
+  }
+
+  set {
+    name  = "controller.resources.requests.cpu"
+    value = "1"
+  }
+
+  set {
+    name  = "controller.resources.requests.memory"
+    value = "1Gi"
+  }
+
+  set {
+    name  = "controller.resources.limits.cpu"
+    value = "1"
+  }
+
+  set {
+    name  = "controller.resources.limits.memory"
+    value = "1Gi"
+  }
+
+  depends_on = [ module.karpenter ]
+}
+
+resource "kubectl_manifest" "install_nodepool" {
+  yaml_body = <<-EOT
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["2"]
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      expireAfter: 720h # 30 dias
+  limits:
+    cpu: 1000
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+  EOT
+
+  depends_on = [ helm_release.karpenter ]
+}
+
+resource "kubectl_manifest" "install_ec2nodeclass" {
+  yaml_body = <<-EOT
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2023
+  amiSelectorTerms:
+    - alias: al2023@latest
+  role: ${module.karpenter.role_name}
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${module.eks_cluster.cluster_name}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${module.eks_cluster.cluster_name}
+  EOT
+
+  depends_on = [ helm_release.karpenter ]
+}
 
 module "secret_manager" {
   source          = "./modules/secrets"
@@ -150,12 +229,12 @@ resource "helm_release" "nginx_ingress" {
 
 ########################## EXTERNAL SECRETS OPERATOR
 
-resource "helm_release" "external_secret_operator" {
-  name       = "external-secret-operator"
-  repository = "https://charts.external-secrets.io"
-  chart      = "external-secrets"
-  namespace  = "default"
-}
+# resource "helm_release" "external_secret_operator" {
+#   name       = "external-secret-operator"
+#   repository = "https://charts.external-secrets.io"
+#   chart      = "external-secrets"
+#   namespace  = "default"
+# }
 
 ########################## CSI SECRET STORE
 
@@ -369,4 +448,28 @@ roleRef:
 EOT
 
   depends_on = [module.eks_cluster]
+}
+
+resource "kubectl_manifest" "aws_auth" {
+  yaml_body = <<YAML
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: aws-auth
+    namespace: kube-system
+  data:
+    mapRoles: |
+      - rolearn: arn:aws:iam::${var.aws_account_id}:role/app-eks-mng-role
+        username: system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
+      - rolearn: arn:aws:iam::${var.aws_account_id}:role/${module.karpenter.role_name}
+        username: system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
+  YAML
+
+  depends_on = [module.eks_cluster, module.karpenter]
 }

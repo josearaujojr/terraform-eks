@@ -13,6 +13,12 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "cluster_id" {
+  description = "ID do cluster EKS"
+  type        = string
+  default     = ""
+}
+
 variable "aws_partition" {
   description = "Partição AWS (ex: aws)"
   type        = string

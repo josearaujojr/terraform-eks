@@ -43,18 +43,6 @@ variable "aws_account_id" {
   type        = string
 }
 
-variable "karpenter_version" {
-  description = "Versão do Karpenter"
-  type        = string
-  default     = "v0.29.0" # Atualize conforme necessário
-}
-
-variable "karpenter_namespace" {
-  description = "Namespace para o Karpenter"
-  type        = string
-  default     = "karpenter"
-}
-
 variable "oidc_provider_arn" {
   description = "ARN do OIDC Provider para IRSA"
   type        = string
