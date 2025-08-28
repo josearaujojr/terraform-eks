@@ -39,6 +39,7 @@ module "eks_managed_node_group" {
 
 module "karpenter" {
   source = "terraform-aws-modules/eks/aws//modules/karpenter"
+  version = "19.20.0"
 
   cluster_name = module.eks_cluster.cluster_name
   irsa_oidc_provider_arn          = module.eks_cluster.oidc_provider_arn
