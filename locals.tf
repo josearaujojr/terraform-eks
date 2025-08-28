@@ -6,4 +6,8 @@ locals {
     Environment              = "Development"
     "karpenter.sh/discovery" = "app-eks-cluster"
   }
+
+  karpenter_tags = {
+    "karpenter.sh/discovery" = "app-eks-cluster"
+  }
 }
