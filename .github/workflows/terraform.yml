@@ -6,12 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Action to run (plan/apply/destroy)'
+        description: 'Action to run (apply/destroy)'
         required: true
-        default: 'plan'
+        default: 'apply'
         type: choice
         options:
-          - plan
           - apply
           - destroy
 
@@ -72,7 +71,6 @@ jobs:
         run: |
           cd $TF_ROOT
           terraform init -backend-config="bucket=$TF_BACKEND_BUCKET" -backend-config="key=$TF_BACKEND_KEY" -backend-config="region=$AWS_DEFAULT_REGION"
-
 
       - name: Terraform Plan
         if: github.event_name == 'push'
