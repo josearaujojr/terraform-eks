@@ -75,6 +75,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
         run: |
           cd $TF_ROOT
+          terraform plan -var="cidr_block=$CIDR_BLOCK" -var="project_name=$PROJECT_NAME" -var="cluster_name=$CLUSTER_NAME" -var="aws_account_id=$AWS_ACCOUNT_ID" -input=false -out=tfplan
           terraform apply -input=false tfplan
 
       - name: Terraform Destroy
