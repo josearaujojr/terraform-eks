@@ -470,6 +470,15 @@ resource "kubectl_manifest" "aws_auth" {
         groups:
           - system:bootstrappers
           - system:nodes
+    mapUsers: |
+      - userarn: arn:aws:iam::${var.aws_account_id}:user/administrator
+        username: administrator
+        groups:
+          - system:masters
+      - userarn: arn:aws:iam::${var.aws_account_id}:root
+        username: root-user
+        groups:
+          - system:masters
   YAML
 
   depends_on = [module.eks_cluster, module.karpenter]
