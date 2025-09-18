@@ -4,146 +4,123 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      action:
-        description: 'Action to run (apply/destroy)'
-        required: true
-        default: 'apply'
-        type: choice
-        options:
-          - apply
-          - destroy
+
+# Permissões para o token do GitHub Actions para autenticação OIDC com a AWS
+permissions:
+  id-token: write # Necessário para autenticação OIDC
+  contents: read  # Necessário para fazer o checkout do código
+  pull-requests: write # Opcional: para postar comentários do plano em PRs
+
+env:
+  # Região padrão da AWS
+  AWS_DEFAULT_REGION: us-east-1
+  # Variáveis do Terraform (prefixo TF_VAR_ é lido automaticamente)
+  TF_VAR_cidr_block: ${{ secrets.CIDR_BLOCK }}
+  TF_VAR_project_name: ${{ secrets.PROJECT_NAME }}
+  TF_VAR_cluster_name: ${{ secrets.CLUSTER_NAME }}
+  TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+  # Configuração do Backend S3
+  TF_BACKEND_BUCKET: "tf-state-777"
+  TF_BACKEND_KEY: "app-eks/terraform.tfstate"
 
 jobs:
   plan:
+    name: 'Terraform Plan'
     runs-on: ubuntu-latest
-    env:
-      TF_ROOT: ${{ github.workspace }}
-      AWS_DEFAULT_REGION: us-east-1
-      CIDR_BLOCK: ${{ secrets.CIDR_BLOCK }}
-      PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      TF_BACKEND_BUCKET: tf-state-777
-      TF_BACKEND_KEY: app-eks/terraform.tfstate
-    if: github.event_name == 'push'
+    outputs:
+      tfplan_exitcode: ${{ steps.plan.outputs.exitcode }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y curl unzip git
-
       - name: Install Terraform
-        run: |
-          curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-          unzip terraform_1.5.7_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
-          terraform --version
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
 
       - name: Configure AWS credentials
-        run: |
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-          aws configure set region $AWS_DEFAULT_REGION
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionRole # <-- Crie este Role na sua conta AWS
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Terraform Init
-        run: |
-          cd $TF_ROOT
-          terraform init -backend-config="bucket=$TF_BACKEND_BUCKET" -backend-config="key=$TF_BACKEND_KEY" -backend-config="region=$AWS_DEFAULT_REGION"
+        id: init
+        run: terraform init -backend-config="bucket=${{ env.TF_BACKEND_BUCKET }}" -backend-config="key=${{ env.TF_BACKEND_KEY }}" -backend-config="region=${{ env.AWS_DEFAULT_REGION }}"
 
       - name: Terraform Plan
-        run: |
-          cd $TF_ROOT
-          terraform plan -var="cidr_block=$CIDR_BLOCK" -var="project_name=$PROJECT_NAME" -var="cluster_name=$CLUSTER_NAME" -var="aws_account_id=$AWS_ACCOUNT_ID" -input=false
+        id: plan
+        run: terraform plan -input=false -no-color -out=tfplan
+        continue-on-error: true # Continua para que possamos ver o plano mesmo se houver falha
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
 
   apply:
+    name: 'Terraform Apply'
     runs-on: ubuntu-latest
-    env:
-      TF_ROOT: ${{ github.workspace }}
-      AWS_DEFAULT_REGION: us-east-1
-      CIDR_BLOCK: ${{ secrets.CIDR_BLOCK }}
-      PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      TF_BACKEND_BUCKET: tf-state-777
-      TF_BACKEND_KEY: app-eks/terraform.tfstate
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
+    needs: plan
+    # Usa um ambiente para forçar uma aprovação manual antes de aplicar
+    environment:
+      name: production
+      url: # Adicione a URL do seu ambiente, se tiver
+    if: github.ref == 'refs/heads/main' && needs.plan.outputs.tfplan_exitcode == 2 # '2' significa que há mudanças a serem aplicadas
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y curl unzip git
-
       - name: Install Terraform
-        run: |
-          curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-          unzip terraform_1.5.7_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
-          terraform --version
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
 
       - name: Configure AWS credentials
-        run: |
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-          aws configure set region $AWS_DEFAULT_REGION
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionRole # <-- Crie este Role na sua conta AWS
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Terraform Init
-        run: |
-          cd $TF_ROOT
-          terraform init -backend-config="bucket=$TF_BACKEND_BUCKET" -backend-config="key=$TF_BACKEND_KEY" -backend-config="region=$AWS_DEFAULT_REGION"
+        id: init
+        run: terraform init -backend-config="bucket=${{ env.TF_BACKEND_BUCKET }}" -backend-config="key=${{ env.TF_BACKEND_KEY }}" -backend-config="region=${{ env.AWS_DEFAULT_REGION }}"
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
 
       - name: Terraform Apply
-        run: |
-          cd $TF_ROOT
-          terraform apply -auto-approve -var="cidr_block=$CIDR_BLOCK" -var="project_name=$PROJECT_NAME" -var="cluster_name=$CLUSTER_NAME" -var="aws_account_id=$AWS_ACCOUNT_ID"
+        run: terraform apply -input=false tfplan
 
   destroy:
+    name: 'Terraform Destroy'
     runs-on: ubuntu-latest
-    env:
-      TF_ROOT: ${{ github.workspace }}
-      AWS_DEFAULT_REGION: us-east-1
-      CIDR_BLOCK: ${{ secrets.CIDR_BLOCK }}
-      PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      TF_BACKEND_BUCKET: tf-state-777
-      TF_BACKEND_KEY: app-eks/terraform.tfstate
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    # O destroy é um job manual, disparado pelo 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y curl unzip git
-
       - name: Install Terraform
-        run: |
-          curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-          unzip terraform_1.5.7_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
-          terraform --version
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
 
       - name: Configure AWS credentials
-        run: |
-          aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-          aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-          aws configure set region $AWS_DEFAULT_REGION
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionRole # <-- Crie este Role na sua conta AWS
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Terraform Init
-        run: |
-          cd $TF_ROOT
-          terraform init -backend-config="bucket=$TF_BACKEND_BUCKET" -backend-config="key=$TF_BACKEND_KEY" -backend-config="region=$AWS_DEFAULT_REGION"
+        id: init
+        run: terraform init -backend-config="bucket=${{ env.TF_BACKEND_BUCKET }}" -backend-config="key=${{ env.TF_BACKEND_KEY }}" -backend-config="region=${{ env.AWS_DEFAULT_REGION }}"
 
       - name: Terraform Destroy
-        run: |
-          cd $TF_ROOT
-          terraform destroy -auto-approve -var="cidr_block=$CIDR_BLOCK" -var="project_name=$PROJECT_NAME" -var="cluster_name=$CLUSTER_NAME" -var="aws_account_id=$AWS_ACCOUNT_ID"
-        continue-on-error: true
+        run: terraform destroy -auto-approve
