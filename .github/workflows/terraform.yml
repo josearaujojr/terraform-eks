@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      action:
+        description: 'Ação manual a ser executada (apply ou destroy)'
+        required: false
+        type: choice
+        options:
+          - apply
+          - destroy
 
 # Permissões para o token do GitHub Actions para autenticação OIDC com a AWS
 permissions:
@@ -68,7 +76,10 @@ jobs:
     environment:
       name: production
       url: # Adicione a URL do seu ambiente, se tiver
-    if: github.ref == 'refs/heads/main' && needs.plan.outputs.tfplan_exitcode == 2 # '2' significa que há mudanças a serem aplicadas
+    # Executa se for um push na main COM mudanças, OU se for um dispatch manual com a ação 'apply'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.tfplan_exitcode == 2) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
 
     steps:
       - name: Checkout code
@@ -100,8 +111,8 @@ jobs:
   destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
-    # O destroy é um job manual, disparado pelo 'workflow_dispatch'
-    if: github.event_name == 'workflow_dispatch'
+    # O destroy é um job manual, disparado pelo 'workflow_dispatch' com a ação 'destroy'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
 
     steps:
       - name: Checkout code
