@@ -48,7 +48,7 @@ validate:
     paths:
       - ${TF_ROOT}/tfplan
   only:
-    - gitlab  
+    - main  
 
 apply:
   stage: apply
@@ -58,7 +58,7 @@ apply:
     - terraform apply -input=false tfplan
   when: manual
   only:
-    - gitlab
+    - main
 
 destroy:
   stage: destroy
@@ -68,5 +68,5 @@ destroy:
     - terraform destroy -auto-approve -var="cidr_block=${CIDR_BLOCK}" -var="project_name=${PROJECT_NAME}" -var="cluster_name=${CLUSTER_NAME}" -var="aws_account_id=${AWS_ACCOUNT_ID}"
   when: manual
   only:
-    - gitlab
+    - main
   allow_failure: true  # Permite que o job falhe sem afetar o status da pipeline
