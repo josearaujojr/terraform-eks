@@ -4,10 +4,10 @@ stages:
   - destroy
 
 variables:
-  TF_ROOT: ${CI_PROJECT_DIR} # Diretório do Terraform
-  AWS_DEFAULT_REGION: "us-east-1"           # Região da AWS
-  TF_BACKEND_BUCKET: "tf-state-777"         # Nome do bucket S3 para o estado do Terraform
-  TF_BACKEND_KEY: "app-eks/terraform.tfstate"  # Caminho do arquivo de estado no S3
+  TF_ROOT: ${CI_PROJECT_DIR} 
+  AWS_DEFAULT_REGION: "us-east-1" 
+  TF_BACKEND_BUCKET: "tf-state-777"
+  TF_BACKEND_KEY: "app-eks/terraform.tfstate"
 
 before_script:
   # Instalar dependências básicas
@@ -48,7 +48,7 @@ validate:
     paths:
       - ${TF_ROOT}/tfplan
   only:
-    - gitlab  
+    - main  
 
 apply:
   stage: apply
@@ -58,7 +58,7 @@ apply:
     - terraform apply -input=false tfplan
   when: manual
   only:
-    - gitlab
+    - main
 
 destroy:
   stage: destroy
@@ -68,5 +68,5 @@ destroy:
     - terraform destroy -auto-approve -var="cidr_block=${CIDR_BLOCK}" -var="project_name=${PROJECT_NAME}" -var="cluster_name=${CLUSTER_NAME}" -var="aws_account_id=${AWS_ACCOUNT_ID}"
   when: manual
   only:
-    - gitlab
+    - main
   allow_failure: true  # Permite que o job falhe sem afetar o status da pipeline
