@@ -30,7 +30,7 @@ before_script:
   - kubectl version --client
 
   # Instalar Helm
-  - curl https://raw.githubusercontent.com/helm/helm/gitlab/scripts/get-helm-3 | bash
+  - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   - helm version
 
   # Autenticar na AWS
