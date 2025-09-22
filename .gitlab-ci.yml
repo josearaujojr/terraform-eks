@@ -4,10 +4,10 @@ stages:
   - destroy
 
 variables:
-  TF_ROOT: ${CI_PROJECT_DIR} # Diretório do Terraform
-  AWS_DEFAULT_REGION: "us-east-1"           # Região da AWS
-  TF_BACKEND_BUCKET: "tf-state-777"         # Nome do bucket S3 para o estado do Terraform
-  TF_BACKEND_KEY: "app-eks/terraform.tfstate"  # Caminho do arquivo de estado no S3
+  TF_ROOT: ${CI_PROJECT_DIR} 
+  AWS_DEFAULT_REGION: "us-east-1" 
+  TF_BACKEND_BUCKET: "tf-state-777"
+  TF_BACKEND_KEY: "app-eks/terraform.tfstate"
 
 before_script:
   # Instalar dependências básicas
