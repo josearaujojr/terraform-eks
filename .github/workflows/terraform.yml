@@ -2,7 +2,7 @@ name: Terraform EKS Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [github]
   workflow_dispatch:
     inputs:
       action:
