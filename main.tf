@@ -37,6 +37,20 @@ module "eks_managed_node_group" {
   capacity_type     = "ON_DEMAND"
 }
 
+module "eks_efs_logs" {
+  source              = "./modules/efs"
+  project_name        = var.project_name
+  tags                = local.tags
+  cluster_id          = var.cluster_name
+  eks_vpc_id          = module.eks_network.eks_vpc
+  subnet_priv_1a      = module.eks_network.subnet_priv_1a
+  subnet_priv_1b      = module.eks_network.subnet_priv_1b
+  eks_cluster_sg_id   = module.eks_cluster.eks_cluster_security_group
+  eks_cluster_sg_rule = module.eks_cluster.eks_cluster_sg_rule
+  oidc_issuer_url     = replace(data.aws_eks_cluster.cluster.identity[0].oidc[0].issuer, "https://", "")
+  depends_on          = [module.eks_cluster]
+}
+
 module "karpenter" {
   source = "terraform-aws-modules/eks/aws//modules/karpenter"
   version = "19.20.0"
