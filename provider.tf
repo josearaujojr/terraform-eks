@@ -23,6 +23,7 @@ terraform {
     bucket = "tf-state-777"
     key    = "app-eks/terraform.tfstate"
     region = "us-east-1"
+    use_lockfile = true
   }
 }
 
