@@ -498,115 +498,154 @@ resource "kubectl_manifest" "aws_auth" {
   depends_on = [module.eks_cluster, module.karpenter]
 }
 
-########################## EFS STORAGE CLASS
-
-resource "kubectl_manifest" "efs_storage_class" {
-  yaml_body = <<-YAML
-    apiVersion: storage.k8s.io/v1
-    kind: StorageClass
-    metadata:
-      name: efs-sc
-    provisioner: efs.csi.aws.com
-    parameters:
-      provisioningMode: efs-ap
-      fileSystemId: ${module.eks_efs_logs.id} # Corrigido para usar o output do módulo
-      directoryPerms: "700"
-  YAML
-
-  depends_on = [
-    module.eks_efs_logs # Garante que o EFS e o driver CSI estejam prontos
-  ]
-}
-
 ########################## SONARQUBE
 
-resource "helm_release" "sonarqube" {
-  name       = "sonarqube"
-  repository = "https://SonarSource.github.io/helm-chart-sonarqube"
-  chart      = "sonarqube"
-  namespace  = "sonarqube"
-  version    = "10.5.1" # É uma boa prática fixar a versão do chart
+# resource "kubectl_manifest" "sonarqube_pv" {
+#   yaml_body = <<-YAML
+#     apiVersion: v1
+#     kind: PersistentVolume
+#     metadata:
+#       name: sonarqube-pv
+#     spec:
+#       capacity:
+#         storage: 10Gi
+#       volumeMode: Filesystem
+#       accessModes:
+#         - ReadWriteOnce
+#       persistentVolumeReclaimPolicy: Retain
+#       storageClassName: "" # Vazio para vincular a PVCs que também não especificam uma classe
+#       csi:
+#         driver: efs.csi.aws.com
+#         volumeHandle: ${module.eks_efs_logs.id}::/sonarqube
+#   YAML
 
-  create_namespace = true
-  wait             = true
-  timeout          = 600 # SonarQube pode demorar para iniciar
+#   depends_on = [module.eks_efs_logs]
+# }
 
-  # Desabilitamos o ingress padrão do chart para criar o nosso manualmente
-  set {
-    name  = "ingress.enabled"
-    value = "false"
-  }
+# resource "kubectl_manifest" "sonarqube_postgres_pv" {
+#   yaml_body = <<-YAML
+#     apiVersion: v1
+#     kind: PersistentVolume
+#     metadata:
+#       name: sonarqube-postgres-pv
+#     spec:
+#       capacity:
+#         storage: 8Gi
+#       volumeMode: Filesystem
+#       accessModes:
+#         - ReadWriteOnce
+#       persistentVolumeReclaimPolicy: Retain
+#       storageClassName: "" # Vazio para vincular a PVCs que também não especificam uma classe
+#       csi:
+#         driver: efs.csi.aws.com
+#         volumeHandle: ${module.eks_efs_logs.id}::/sonarqube-postgres
+#   YAML
 
-  # Habilita o PostgreSQL que vem no chart (para ambientes de dev/teste)
-  set {
-    name  = "postgresql.enabled"
-    value = "true"
-  }
+#   depends_on = [module.eks_efs_logs]
+# }
 
-  # Habilita a persistência de dados para o SonarQube e PostgreSQL
-  set {
-    name  = "persistence.enabled"
-    value = "true"
-  }
+# resource "helm_release" "sonarqube" {
+#   name       = "sonarqube"
+#   repository = "https://SonarSource.github.io/helm-chart-sonarqube"
+#   chart      = "sonarqube"
+#   namespace  = "sonarqube"
+#   version    = "10.5.1"
 
-  # Define a StorageClass para o volume do SonarQube
-  set {
-    name  = "persistence.storageClassName"
-    value = "efs-sc"
-  }
+#   create_namespace = true
+#   wait             = true
+#   timeout          = 600
 
-  # Define a StorageClass para o volume do PostgreSQL
-  set {
-    name  = "postgresql.persistence.storageClass"
-    value = "efs-sc"
-  }
+#   set {
+#     name  = "ingress.enabled"
+#     value = "false"
+#   }
+#   set {
+#     name  = "postgresql.enabled"
+#     value = "true"
+#   }
+#   set {
+#     name  = "persistence.enabled"
+#     value = "true"
+#   }
 
-  # Ajuste de recursos para o SonarQube (requer bastante memória)
-  set {
-    name  = "sonarqube.resources.requests.cpu"
-    value = "500m"
-  }
-  set {
-    name  = "sonarqube.resources.requests.memory"
-    value = "2Gi"
-  }
-  set {
-    name  = "sonarqube.resources.limits.cpu"
-    value = "2"
-  }
-  set {
-    name  = "sonarqube.resources.limits.memory"
-    value = "4Gi"
-  }
+#   # Deixamos a storageClassName vazia para que o PVC se vincule ao PV estático que criamos
+#   set {
+#     name  = "persistence.storageClassName"
+#     value = ""
+#   }
+#   set {
+#     name  = "postgresql.persistence.storageClass"
+#     value = ""
+#   }
 
-  depends_on = [
-    helm_release.nginx_ingress,
-    kubectl_manifest.efs_storage_class # Garante que a StorageClass exista antes de instalar o SonarQube
-  ]
-}
+#   # O chart do SonarQube cria um PVC chamado 'sonarqube-sonarqube'.
+#   # Para vincular ao nosso PV 'sonarqube-pv', precisamos garantir que o nome do volume seja o mesmo.
+#   set {
+#     name  = "persistence.volumeName"
+#     value = "sonarqube-pv"
+#   }
 
-resource "kubectl_manifest" "sonarqube_ingress" {
-  yaml_body = <<-YAML
-    apiVersion: networking.k8s.io/v1
-    kind: Ingress
-    metadata:
-      name: sonarqube-ingress
-      namespace: sonarqube
-      annotations:
-        nginx.ingress.kubernetes.io/rewrite-target: /
-    spec:
-      ingressClassName: nginx
-      rules:
-      - http:
-          paths:
-          - path: /sonarqube
-            pathType: Prefix
-            backend:
-              service:
-                name: sonarqube-sonarqube # Nome do serviço criado pelo Helm Chart
-                port:
-                  number: 9000
-  YAML
+#   # Força o PVC do SonarQube a pedir 10Gi, garantindo que ele se vincule ao PV correto.
+#   set {
+#     name  = "persistence.size"
+#     value = "10Gi"
+#   }
 
-  depends_on = [helm_release.sonarqube]
-}
+#   # O chart do PostgreSQL cria um PVC chamado 'data-sonarqube-postgresql-0'.
+#   # Para vincular ao nosso PV 'sonarqube-postgres-pv', precisamos garantir que o nome do volume seja o mesmo.
+#   set {
+#     name  = "postgresql.persistence.volumeName"
+#     value = "sonarqube-postgres-pv"
+#   }
+
+#   set { 
+#     name = "sonarqube.resources.requests.cpu" 
+#     value = "500m" 
+#   }
+  
+#   set { 
+#     name = "sonarqube.resources.requests.memory"
+#     value = "2Gi" 
+#   }
+  
+#   set { 
+#     name = "sonarqube.resources.limits.cpu"
+#     value = "2" 
+#   }
+#   set { 
+#     name = "sonarqube.resources.limits.memory"
+#     value = "4Gi" 
+#   }
+
+#   depends_on = [
+#     helm_release.nginx_ingress,
+#     kubectl_manifest.sonarqube_pv,
+#     kubectl_manifest.sonarqube_postgres_pv
+#   ]
+# }
+
+# resource "kubectl_manifest" "sonarqube_ingress" {
+#   yaml_body = <<-YAML
+#     apiVersion: networking.k8s.io/v1
+#     kind: Ingress
+#     metadata:
+#       name: sonarqube-ingress
+#       namespace: sonarqube
+#       annotations:
+#         nginx.ingress.kubernetes.io/rewrite-target: /
+#     spec:
+#       ingressClassName: nginx
+#       rules:
+#       - http:
+#           paths:
+#           - path: /sonarqube
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: sonarqube-sonarqube
+#                 port:
+#                   number: 9000
+#   YAML
+
+#   depends_on = [helm_release.sonarqube]
+# }

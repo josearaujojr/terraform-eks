@@ -14,6 +14,31 @@ module "eks_efs_logs" {
   # File system policy
   attach_policy = false
   # bypass_policy_lockout_safety_check = true
+
+  # access_points = {
+  #   sonarqube = {
+  #     name = "sonarqube"
+  #     root_directory = {
+  #       path = "/sonarqube"
+  #       creation_info = {
+  #         owner_gid   = 1000
+  #         owner_uid   = 1000
+  #         permissions = "777"
+  #       }
+  #     }
+  #   }
+  #   "sonarqube-postgres" = {
+  #     name = "sonarqube-postgres"
+  #     root_directory = {
+  #       path = "/sonarqube-postgres"
+  #       creation_info = {
+  #         owner_gid   = 1000
+  #         owner_uid   = 1000
+  #         permissions = "777"
+  #       }
+  #     }
+  #   }
+  # }
 }
 
 resource "aws_efs_mount_target" "subnet_1a" {
