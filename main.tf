@@ -34,7 +34,7 @@ module "eks_managed_node_group" {
   subnet_private_1a = module.eks_network.subnet_priv_1a
   subnet_private_1b = module.eks_network.subnet_priv_1b
   tags              = local.tags
-  capacity_type     = "ON_DEMAND"
+  capacity_type     = "SPOT"
 }
 
 module "eks_efs_logs" {
@@ -497,3 +497,134 @@ resource "kubectl_manifest" "aws_auth" {
 
   depends_on = [module.eks_cluster, module.karpenter]
 }
+
+########################## SONARQUBE OPENSOURCE
+
+resource "kubernetes_namespace" "sonarqube" {
+  metadata {
+    name = "sonarqube"
+  }
+}
+
+resource "helm_release" "sonarqube" {
+  name       = "sonarqube"
+  repository = "https://SonarSource.github.io/helm-chart-sonarqube"
+  chart      = "sonarqube"
+  namespace  = kubernetes_namespace.sonarqube.metadata[0].name
+
+  set {
+    name  = "community.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "image.tag"
+    value = "10.5.1-community"
+  }
+
+  set {
+    name  = "postgresql.primary.persistence.storageClass"
+    value = "gp2"
+  }
+
+  set {
+    name  = "postgresql.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "monitoringPasscode"
+    value = "yourPasscode"
+  }
+}
+
+resource "kubectl_manifest" "sonarqube_ingress" {
+  yaml_body = <<-YAML
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonar-ingress
+  namespace: sonarqube
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: sonarqube-sonarqube
+            port: 
+              number: 9000
+ YAML
+
+  depends_on = [helm_release.sonarqube]
+}
+
+########################## SONARQUBE DEVELOPER EDITION
+
+# # Cria o namespace "sonarqube"
+# resource "kubernetes_namespace" "sonarqube" {
+#   metadata {
+#     name = "sonarqube"
+#   }
+# }
+
+# # Instala/atualiza o SonarQube via Helm
+# resource "helm_release" "sonarqube" {
+#   name       = "sonarqube"
+#   repository = "https://SonarSource.github.io/helm-chart-sonarqube"
+#   chart      = "sonarqube"
+#   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
+#   #version    = "x.x.x" # opcional - pode fixar a versão do chart
+
+#   set {
+#     name  = "edition"
+#     value = "developer"
+#   }
+
+#   set {
+#     name  = "monitoringPasscode"
+#     value = "yourPasscode"
+#   }
+
+#   set {
+#     name  = "postgresql.persistence.storageClass"
+#     value = "gp2"
+#   }
+
+#   # set {
+#   #   name  = "sonar.web.context"
+#   #   value = "/sonarqube"
+#   # }
+# }
+
+# resource "kubectl_manifest" "sonarqube_ingress" {
+#   yaml_body = <<-YAML
+#     apiVersion: networking.k8s.io/v1
+#     kind: Ingress
+#     metadata:
+#       name: sonarqube-ingress
+#       namespace: sonarqube
+#       annotations:
+#         nginx.ingress.kubernetes.io/ssl-redirect: "true"
+#     spec:
+#       ingressClassName: nginx
+#       rules:
+#       - host: sonarqube.domain.local
+#         http:
+#           paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: sonarqube-sonarqube
+#                 port:
+#                   number: 9000
+#   YAML
+
+#   depends_on = [helm_release.sonarqube]
+# }
