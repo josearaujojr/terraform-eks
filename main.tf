@@ -34,7 +34,7 @@ module "eks_managed_node_group" {
   subnet_private_1a = module.eks_network.subnet_priv_1a
   subnet_private_1b = module.eks_network.subnet_priv_1b
   tags              = local.tags
-  capacity_type     = "ON_DEMAND"
+  capacity_type     = "SPOT"
 }
 
 module "eks_efs_logs" {
@@ -498,42 +498,44 @@ resource "kubectl_manifest" "aws_auth" {
   depends_on = [module.eks_cluster, module.karpenter]
 }
 
-########################## SONARQUBE
+########################## SONARQUBE OPENSOURCE
 
-# Cria o namespace "sonarqube"
 resource "kubernetes_namespace" "sonarqube" {
   metadata {
     name = "sonarqube"
   }
 }
 
-# Instala/atualiza o SonarQube via Helm
 resource "helm_release" "sonarqube" {
   name       = "sonarqube"
   repository = "https://SonarSource.github.io/helm-chart-sonarqube"
   chart      = "sonarqube"
   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
-  #version    = "x.x.x" # opcional - pode fixar a versão do chart
 
   set {
-    name  = "edition"
-    value = "developer"
+    name  = "community.enabled"
+    value = "true"
+  }
+
+  set {
+    name  = "image.tag"
+    value = "10.5.1-community"
+  }
+
+  set {
+    name  = "postgresql.primary.persistence.storageClass"
+    value = "gp2"
+  }
+
+  set {
+    name  = "postgresql.enabled"
+    value = "true"
   }
 
   set {
     name  = "monitoringPasscode"
     value = "yourPasscode"
   }
-
-  set {
-    name  = "postgresql.persistence.storageClass"
-    value = "gp2"
-  }
-
-  # set {
-  #   name  = "sonar.web.context"
-  #   value = "/sonarqube"
-  # }
 }
 
 resource "kubectl_manifest" "sonarqube_ingress" {
@@ -560,7 +562,45 @@ spec:
  YAML
 
   depends_on = [helm_release.sonarqube]
-}     
+}
+
+########################## SONARQUBE DEVELOPER EDITION
+
+# # Cria o namespace "sonarqube"
+# resource "kubernetes_namespace" "sonarqube" {
+#   metadata {
+#     name = "sonarqube"
+#   }
+# }
+
+# # Instala/atualiza o SonarQube via Helm
+# resource "helm_release" "sonarqube" {
+#   name       = "sonarqube"
+#   repository = "https://SonarSource.github.io/helm-chart-sonarqube"
+#   chart      = "sonarqube"
+#   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
+#   #version    = "x.x.x" # opcional - pode fixar a versão do chart
+
+#   set {
+#     name  = "edition"
+#     value = "developer"
+#   }
+
+#   set {
+#     name  = "monitoringPasscode"
+#     value = "yourPasscode"
+#   }
+
+#   set {
+#     name  = "postgresql.persistence.storageClass"
+#     value = "gp2"
+#   }
+
+#   # set {
+#   #   name  = "sonar.web.context"
+#   #   value = "/sonarqube"
+#   # }
+# }
 
 # resource "kubectl_manifest" "sonarqube_ingress" {
 #   yaml_body = <<-YAML

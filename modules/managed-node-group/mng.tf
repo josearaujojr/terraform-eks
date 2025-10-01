@@ -26,7 +26,7 @@ resource "aws_eks_node_group" "eks_managed_node_group" {
   node_role_arn   = aws_iam_role.eks_mng_role.arn
   subnet_ids      = [var.subnet_private_1a, var.subnet_private_1b]
   capacity_type   = var.capacity_type
-  instance_types  = ["t3a.medium"]
+  instance_types  = ["c5.xlarge"]
   tags = merge(
     var.tags,
     {

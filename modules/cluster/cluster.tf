@@ -112,6 +112,41 @@ resource "aws_eks_addon" "aws_ebs_csi_driver" {
   })
 }
 
+# IAM Role para o Addon AWS EFS CSI Driver
+resource "aws_iam_role" "efs_csi_driver_role" {
+  name = "${var.project_name}-efs-csi-driver-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Federated = "arn:${var.aws_partition}:iam::${var.aws_account_id}:oidc-provider/${replace(aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer, "https://", "")}"
+        },
+        Action = "sts:AssumeRoleWithWebIdentity",
+        Condition = {
+          StringEquals = {
+            "${replace(aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" : "system:serviceaccount:kube-system:efs-csi-controller-sa"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "efs_csi_driver_policy_attachment" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+  role       = aws_iam_role.efs_csi_driver_role.name
+}
+
+resource "aws_eks_addon" "aws_efs_csi_driver" {
+  cluster_name             = aws_eks_cluster.eks_cluster.name
+  addon_name               = "aws-efs-csi-driver"
+  service_account_role_arn = aws_iam_role.efs_csi_driver_role.arn
+  depends_on               = [aws_iam_role_policy_attachment.efs_csi_driver_policy_attachment]
+}
+
 resource "null_resource" "wait_for_sg" {
   provisioner "local-exec" {
     command = "sleep 30" # Ajuste o tempo conforme necessário

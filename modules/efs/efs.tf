@@ -91,10 +91,10 @@ resource "kubernetes_service_account" "efs_csi_sa" {
   }
 }
 
-resource "aws_eks_addon" "efs_csi" {
-  cluster_name             = "app-eks-cluster"
-  addon_name               = "aws-efs-csi-driver"
-  service_account_role_arn = aws_iam_role.efs_csi_role.arn
+# resource "aws_eks_addon" "efs_csi" {
+#   cluster_name             = "app-eks-cluster"
+#   addon_name               = "aws-efs-csi-driver"
+#   service_account_role_arn = aws_iam_role.efs_csi_role.arn
 
-  depends_on = [aws_iam_role.efs_csi_role, kubernetes_service_account.efs_csi_sa, module.eks_efs_logs]
-}
+#   depends_on = [aws_iam_role.efs_csi_role, kubernetes_service_account.efs_csi_sa, module.eks_efs_logs]
+# }
