@@ -484,6 +484,10 @@ resource "kubectl_manifest" "aws_auth" {
         groups:
           - system:bootstrappers
           - system:nodes
+      - rolearn: arn:aws:iam::881490100310:role/GitHubActionRole
+        username: github-actions-ci
+        groups:
+          - system:masters
     mapUsers: |
       - userarn: arn:aws:iam::${var.aws_account_id}:user/administrator
         username: administrator
