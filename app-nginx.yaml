@@ -1,0 +1,81 @@
+# 1. Deployment para a Aplicação Nginx
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app-alb
+  labels:
+    app: nginx-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-web
+  template:
+    metadata:
+      labels:
+        app: nginx-web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80 # Nginx roda na porta 80
+---
+# 2. Service Interno (ClusterIP) para a Aplicação Nginx
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-web-service
+spec:
+  selector:
+    app: nginx-web # Seleciona os pods do Deployment acima
+  ports:
+  - protocol: TCP
+    port: 80 # Porta que o Ingress irá apontar (interna ao cluster)
+    targetPort: 80 # Porta do Container Nginx
+  type: ClusterIP # Tipo padrão, acessível apenas internamente ao cluster
+---
+# 3. Recurso Ingress usando o ALB Controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-web-ingress
+  annotations:
+    # A ANOTAÇÃO CRUCIAL: Nome do grupo de Load Balancers que você está usando (k8s-platform)
+    alb.ingress.kubernetes.io/group.name: platform-engineering 
+    
+    # Configurações básicas de roteamento e segurança (copiadas do seu exemplo)
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    
+    # Redirecionamento de HTTP para HTTPS (requer o certificado)
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    
+    # ARN do Certificado SSL no AWS ACM (Substitua pelo seu ARN)
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:470499195121:certificate/9c513716-29e2-4a2a-b8c6-fd2045596cbb 
+    
+    # Configurações de Health Check para o ALB (copiadas do seu exemplo)
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+
+    # Opcional: Anotação do ExternalDNS para criar o registro DNS no Route 53
+    # Substitua 'nginx.amorsaude.tech' pelo nome DNS que você deseja
+    # external-dns.alpha.kubernetes.io/hostname: "nginx.amorsaude.tech"
+
+spec:
+  # Classe de Ingress correta para o AWS ALB Controller
+  ingressClassName: alb
+  rules:
+  - host: nginx.amorsaude.tech # SUBSTITUA pelo seu host
+    http:
+      paths:
+      - path: /
+        pathType: Prefix # Recomendado em vez de ImplementationSpecific
+        backend:
+          service:
+            name: nginx-web-service # Nome do Service ClusterIP
+            port:
+              number: 80 # Porta do Service

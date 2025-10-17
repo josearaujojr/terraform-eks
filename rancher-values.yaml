@@ -1,0 +1,22 @@
+# Rancher Helm values used by terraform helm_release
+# For ingress: force nginx ingress class and use cert-manager for TLS issuance
+ingress:
+  extraAnnotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
+  tls:
+    source: "cert-manager"
+
+# Use cert-manager to manage certificates
+certmanager:
+  enabled: true
+
+# Optional: increase timeouts and resources if needed
+# resources:
+#   limits:
+#     cpu: "500m"
+#     memory: "512Mi"
+#   requests:
+#     cpu: "100m"
+#     memory: "128Mi"

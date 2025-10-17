@@ -504,69 +504,69 @@ resource "kubectl_manifest" "aws_auth" {
 
 ########################## SONARQUBE OPENSOURCE
 
-resource "kubernetes_namespace" "sonarqube" {
-  metadata {
-    name = "sonarqube"
-  }
-}
+# # resource "kubernetes_namespace" "sonarqube" {
+# #   metadata {
+# #     name = "sonarqube"
+# #   }
+# # }
 
-resource "helm_release" "sonarqube" {
-  name       = "sonarqube"
-  repository = "https://SonarSource.github.io/helm-chart-sonarqube"
-  chart      = "sonarqube"
-  namespace  = kubernetes_namespace.sonarqube.metadata[0].name
+# # resource "helm_release" "sonarqube" {
+# #   name       = "sonarqube"
+# #   repository = "https://SonarSource.github.io/helm-chart-sonarqube"
+# #   chart      = "sonarqube"
+# #   namespace  = kubernetes_namespace.sonarqube.metadata[0].name
 
-  set {
-    name  = "community.enabled"
-    value = "true"
-  }
+# #   set {
+# #     name  = "community.enabled"
+# #     value = "true"
+# #   }
 
-  set {
-    name  = "image.tag"
-    value = "10.5.1-community"
-  }
+# #   set {
+# #     name  = "image.tag"
+# #     value = "10.5.1-community"
+# #   }
 
-  set {
-    name  = "postgresql.primary.persistence.storageClass"
-    value = "gp2"
-  }
+# #   set {
+# #     name  = "postgresql.primary.persistence.storageClass"
+# #     value = "gp2"
+# #   }
 
-  set {
-    name  = "postgresql.enabled"
-    value = "true"
-  }
+# #   set {
+# #     name  = "postgresql.enabled"
+# #     value = "true"
+# #   }
 
-  set {
-    name  = "monitoringPasscode"
-    value = "yourPasscode"
-  }
-}
+# #   set {
+# #     name  = "monitoringPasscode"
+# #     value = "yourPasscode"
+# #   }
+# # }
 
-resource "kubectl_manifest" "sonarqube_ingress" {
-  yaml_body = <<-YAML
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: sonar-ingress
-  namespace: sonarqube
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: nginx
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: sonarqube-sonarqube
-            port: 
-              number: 9000
- YAML
+# # resource "kubectl_manifest" "sonarqube_ingress" {
+# #   yaml_body = <<-YAML
+# # apiVersion: networking.k8s.io/v1
+# # kind: Ingress
+# # metadata:
+# #   name: sonar-ingress
+# #   namespace: sonarqube
+# #   annotations:
+# #     nginx.ingress.kubernetes.io/rewrite-target: /
+# # spec:
+# #   ingressClassName: nginx
+# #   rules:
+# #   - http:
+# #       paths:
+# #       - path: /
+# #         pathType: Prefix
+# #         backend:
+# #           service:
+# #             name: sonarqube-sonarqube
+# #             port: 
+# #               number: 9000
+# #  YAML
 
-  depends_on = [helm_release.sonarqube]
-}
+# #   depends_on = [helm_release.sonarqube]
+# # }
 
 ########################## SONARQUBE DEVELOPER EDITION
 
@@ -632,3 +632,96 @@ spec:
 
 #   depends_on = [helm_release.sonarqube]
 # }
+
+########################## RANCHER (cert-manager + rancher via Helm)
+
+# Namespace para o cert-manager (o chart do cert-manager recomenda usar namespace `cert-manager`)
+resource "kubernetes_namespace" "cert_manager" {
+  metadata {
+    name = "cert-manager"
+  }
+}
+
+# Namespace para o Rancher (o chart do Rancher instala operadores no namespace `cattle-system`)
+resource "kubernetes_namespace" "cattle_system" {
+  metadata {
+    name = "cattle-system"
+  }
+}
+
+# Instalação do cert-manager (instala também os CRDs via set installCRDs=true)
+resource "helm_release" "cert_manager" {
+  name             = "cert-manager"
+  repository       = "https://charts.jetstack.io"
+  chart            = "cert-manager"
+  namespace        = kubernetes_namespace.cert_manager.metadata[0].name
+  create_namespace = false
+  version          = "1.12.0"
+  wait             = true
+
+  set {
+    name  = "installCRDs"
+    value = "true"
+  }
+
+  depends_on = [module.eks_cluster]
+}
+
+# Instalação do Rancher
+# Ajuste `hostname` conforme seu DNS público/privado (ex: rancher.example.com)
+resource "helm_release" "rancher" {
+  name             = "rancher"
+  repository       = "https://releases.rancher.com/server-charts/stable"
+  chart            = "rancher"
+  namespace        = kubernetes_namespace.cattle_system.metadata[0].name
+  create_namespace = false
+  version          = "2.12.2"
+  wait             = true
+
+  set {
+    name  = "hostname"
+    value = "rancher.${var.project_name}.local"
+  }
+
+  values = [file("${path.module}/rancher-values.yaml")]
+
+  # Cert-manager e ingress-nginx devem estar disponíveis antes do Rancher
+  depends_on = [helm_release.cert_manager, helm_release.nginx_ingress]
+}
+
+# ClusterRole para permitir que o ServiceAccount do Rancher leia logs de pods
+resource "kubectl_manifest" "rancher_read_logs_cr" {
+  yaml_body = <<-YAML
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rancher-read-logs
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+YAML
+
+  # garantir que o rancher exista primeiro
+  depends_on = [helm_release.rancher]
+}
+
+# ClusterRoleBinding vinculando o ClusterRole ao ServiceAccount rancher no namespace cattle-system
+resource "kubectl_manifest" "rancher_read_logs_crb" {
+  yaml_body = <<-YAML
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rancher-read-logs-binding
+subjects:
+  - kind: ServiceAccount
+    name: rancher
+    namespace: cattle-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: rancher-read-logs
+YAML
+
+  depends_on = [helm_release.rancher, kubectl_manifest.rancher_read_logs_cr]
+}
